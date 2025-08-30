@@ -36,64 +36,60 @@ jobs:
           SOURCE_DIR=/Users/Shared/telegram-ios
           cd $SOURCE_DIR
           
-          # Создаем директорию для provisioning profiles если её нет
           mkdir -p build-input/configuration-repository/provisioning
           
-          # Создаем fake provisioning profiles
           echo "Creating fake provisioning profiles..."
           
-          # Создаем BUILD файл для provisioning с помощью echo
           cat > build-input/configuration-repository/provisioning/BUILD << 'EOF'
-filegroup(
-    name = "AppStore.mobileprovision",
-    srcs = ["AppStore.mobileprovision"],
-    visibility = ["//visibility:public"],
-)
+          filegroup(
+            name = "AppStore.mobileprovision",
+            srcs = ["AppStore.mobileprovision"],
+            visibility = ["//visibility:public"],
+          )
 
-filegroup(
-    name = "Share.mobileprovision",
-    srcs = ["Share.mobileprovision"],
-    visibility = ["//visibility:public"],
-)
+          filegroup(
+            name = "Share.mobileprovision",
+            srcs = ["Share.mobileprovision"],
+            visibility = ["//visibility:public"],
+          )
 
-filegroup(
-    name = "NotificationService.mobileprovision",
-    srcs = ["NotificationService.mobileprovision"],
-    visibility = ["//visibility:public"],
-)
+          filegroup(
+            name = "NotificationService.mobileprovision",
+            srcs = ["NotificationService.mobileprovision"],
+            visibility = ["//visibility:public"],
+          )
 
-filegroup(
-    name = "NotificationContent.mobileprovision",
-    srcs = ["NotificationContent.mobileprovision"],
-    visibility = ["//visibility:public"],
-)
+          filegroup(
+            name = "NotificationContent.mobileprovision",
+            srcs = ["NotificationContent.mobileprovision"],
+            visibility = ["//visibility:public"],
+          )
 
-filegroup(
-    name = "Widget.mobileprovision",
-    srcs = ["Widget.mobileprovision"],
-    visibility = ["//visibility:public"],
-)
+          filegroup(
+            name = "Widget.mobileprovision",
+            srcs = ["Widget.mobileprovision"],
+            visibility = ["//visibility:public"],
+          )
 
-filegroup(
-    name = "BroadcastUpload.mobileprovision",
-    srcs = ["BroadcastUpload.mobileprovision"],
-    visibility = ["//visibility:public"],
-)
+          filegroup(
+            name = "BroadcastUpload.mobileprovision",
+            srcs = ["BroadcastUpload.mobileprovision"],
+            visibility = ["//visibility:public"],
+          )
 
-filegroup(
-    name = "BroadcastSetupUI.mobileprovision",
-    srcs = ["BroadcastSetupUI.mobileprovision"],
-    visibility = ["//visibility:public"],
-)
+          filegroup(
+            name = "BroadcastSetupUI.mobileprovision",
+            srcs = ["BroadcastSetupUI.mobileprovision"],
+            visibility = ["//visibility:public"],
+          )
 
-filegroup(
-    name = "Intents.mobileprovision",
-    srcs = ["Intents.mobileprovision"],
-    visibility = ["//visibility:public"],
-)
-EOF
+          filegroup(
+            name = "Intents.mobileprovision",
+            srcs = ["Intents.mobileprovision"],
+            visibility = ["//visibility:public"],
+          )
+          EOF
 
-          # Создаем пустые fake provisioning files
           touch build-input/configuration-repository/provisioning/AppStore.mobileprovision
           touch build-input/configuration-repository/provisioning/Share.mobileprovision
           touch build-input/configuration-repository/provisioning/NotificationService.mobileprovision
