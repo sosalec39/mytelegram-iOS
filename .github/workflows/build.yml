@@ -44,10 +44,11 @@ jobs:
           
           # Создаем BUILD файл для provisioning с помощью echo
           echo 'filegroup(
-          name = "AppStore.mobileprovision",
-          srcs = ["AppStore.mobileprovision"],
-          visibility = ["//visibility:public"],
+    name = "AppStore.mobileprovision",
+    srcs = ["AppStore.mobileprovision"],
+    visibility = ["//visibility:public"],
 )
+
 filegroup(
     name = "Share.mobileprovision",
     srcs = ["Share.mobileprovision"],
