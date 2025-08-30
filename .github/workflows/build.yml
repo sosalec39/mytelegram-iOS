@@ -43,11 +43,12 @@ jobs:
           echo "Creating fake provisioning profiles..."
           
           # Создаем BUILD файл для provisioning с помощью echo
-          echo 'filegroup(
-          name = "AppStore.mobileprovision",
-          srcs = ["AppStore.mobileprovision"],
-          visibility = ["//visibility:public"],
-          )
+          cat > build-input/configuration-repository/provisioning/BUILD << 'EOF'
+filegroup(
+    name = "AppStore.mobileprovision",
+    srcs = ["AppStore.mobileprovision"],
+    visibility = ["//visibility:public"],
+)
 
 filegroup(
     name = "Share.mobileprovision",
@@ -89,7 +90,8 @@ filegroup(
     name = "Intents.mobileprovision",
     srcs = ["Intents.mobileprovision"],
     visibility = ["//visibility:public"],
-)' > build-input/configuration-repository/provisioning/BUILD
+)
+EOF
 
           # Создаем пустые fake provisioning files
           touch build-input/configuration-repository/provisioning/AppStore.mobileprovision
