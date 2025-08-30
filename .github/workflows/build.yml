@@ -42,9 +42,8 @@ jobs:
           # Создаем fake provisioning profiles
           echo "Creating fake provisioning profiles..."
           
-          # Создаем BUILD файл для provisioning
-          cat > build-input/configuration-repository/provisioning/BUILD << 'EOF'
-filegroup(
+          # Создаем BUILD файл для provisioning с помощью echo
+          echo 'filegroup(
     name = "AppStore.mobileprovision",
     srcs = ["AppStore.mobileprovision"],
     visibility = ["//visibility:public"],
@@ -90,8 +89,7 @@ filegroup(
     name = "Intents.mobileprovision",
     srcs = ["Intents.mobileprovision"],
     visibility = ["//visibility:public"],
-)
-EOF
+)' > build-input/configuration-repository/provisioning/BUILD
 
           # Создаем пустые fake provisioning files
           touch build-input/configuration-repository/provisioning/AppStore.mobileprovision
