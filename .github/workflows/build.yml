@@ -1,14 +1,13 @@
-name: CI
+name: ios
 
 on:
   push:
     branches: [ master ]
-
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: macos-13
+    runs-on: macos-15
 
     steps:
       - uses: actions/checkout@v2
@@ -18,6 +17,9 @@ jobs:
 
       - name: Set active Xcode path
         run: |
+          xcode-select -p
+          xcrun xcodebuild -version
+          xcrun xcodebuild -showsdks
           XCODE_VERSION=$(cat versions.json | python3 -c 'import json,sys;obj=json.load(sys.stdin);print(obj["xcode"]);')
           sudo xcode-select -s /Applications/Xcode_$XCODE_VERSION.app/Contents/Developer
 
@@ -28,8 +30,84 @@ jobs:
           cp -R $GITHUB_WORKSPACE /Users/Shared/
           mv /Users/Shared/$(basename $GITHUB_WORKSPACE) /Users/Shared/telegram-ios
 
+      - name: Setup Provisioning Profiles
+        run: |
+          set -x
+          SOURCE_DIR=/Users/Shared/telegram-ios
+          cd $SOURCE_DIR
+          
+          # Создаем директорию для provisioning profiles если её нет
+          mkdir -p build-input/configuration-repository/provisioning
+          
+          # Создаем fake provisioning profiles
+          echo "Creating fake provisioning profiles..."
+          
+          # Создаем BUILD файл для provisioning
+          cat > build-input/configuration-repository/provisioning/BUILD << 'EOF'
+filegroup(
+    name = "AppStore.mobileprovision",
+    srcs = ["AppStore.mobileprovision"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "Share.mobileprovision",
+    srcs = ["Share.mobileprovision"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "NotificationService.mobileprovision",
+    srcs = ["NotificationService.mobileprovision"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "NotificationContent.mobileprovision",
+    srcs = ["NotificationContent.mobileprovision"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "Widget.mobileprovision",
+    srcs = ["Widget.mobileprovision"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "BroadcastUpload.mobileprovision",
+    srcs = ["BroadcastUpload.mobileprovision"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "BroadcastSetupUI.mobileprovision",
+    srcs = ["BroadcastSetupUI.mobileprovision"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "Intents.mobileprovision",
+    srcs = ["Intents.mobileprovision"],
+    visibility = ["//visibility:public"],
+)
+EOF
+
+          # Создаем пустые fake provisioning files
+          touch build-input/configuration-repository/provisioning/AppStore.mobileprovision
+          touch build-input/configuration-repository/provisioning/Share.mobileprovision
+          touch build-input/configuration-repository/provisioning/NotificationService.mobileprovision
+          touch build-input/configuration-repository/provisioning/NotificationContent.mobileprovision
+          touch build-input/configuration-repository/provisioning/Widget.mobileprovision
+          touch build-input/configuration-repository/provisioning/BroadcastUpload.mobileprovision
+          touch build-input/configuration-repository/provisioning/BroadcastSetupUI.mobileprovision
+          touch build-input/configuration-repository/provisioning/Intents.mobileprovision
+
       - name: Build the App
         run: |
+          xcode-select -p
+          xcrun xcodebuild -version
+          xcrun xcodebuild -showsdks
           set -x
 
           # source code paths are included in the final binary, so we need to make them stable across builds
@@ -56,22 +134,8 @@ jobs:
             --configurationPath="build-system/appstore-configuration.json" \
             --codesigningInformationPath=build-system/fake-codesigning \
             --configuration=release_arm64 \
-            --buildNumber="$BUILD_NUMBER"
-
-          # collect ipa
-          OUTPUT_PATH="build/artifacts"
-          rm -rf "$OUTPUT_PATH"
-          mkdir -p "$OUTPUT_PATH"
-          for f in bazel-out/applebin_ios-ios_arm*-opt-ST-*/bin/Telegram/Telegram.ipa; do
-            cp "$f" $OUTPUT_PATH/
-          done
-
-          # collect dsym
-          mkdir -p build/DSYMs
-          for f in bazel-out/applebin_ios-ios_arm*-opt-ST-*/bin/Telegram/*.dSYM; do
-            cp -R "$f" build/DSYMs/
-          done
-          zip -r "./$OUTPUT_PATH/Telegram.DSYMs.zip" build/DSYMs 1>/dev/null
+            --buildNumber="$BUILD_NUMBER" \
+            --outputBuildArtifactsPath="build/artifacts"
 
       - name: Create Release
         id: create_release
