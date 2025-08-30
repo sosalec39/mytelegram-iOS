@@ -48,7 +48,6 @@ jobs:
           srcs = ["AppStore.mobileprovision"],
           visibility = ["//visibility:public"],
 )
-
 filegroup(
     name = "Share.mobileprovision",
     srcs = ["Share.mobileprovision"],
