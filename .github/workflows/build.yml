@@ -61,18 +61,17 @@ jobs:
           df -h /
           python3 --version
 
-      - name: Prepare example codesigning layout
-        # DirectoryCodesigningSource expects <path>/profiles/*.mobileprovision
-        # and <path>/certs/. The repo ships provisioning profiles under
-        # example-configuration/provisioning, so mirror them into the expected
-        # locations. `certs` stays empty — bazel signing is bypassed by
-        # --//Telegram:disableProvisioningProfiles.
+      - name: Prepare example codesigning layout (regenerate expired profiles)
+        # rules_apple insists on a provisioning_profile attribute even when the
+        # setting is None; the profiles bundled with the repo expired in 2022.
+        # We rewrap the same plist into fresh self-signed CMS with an
+        # ExpirationDate in 2035 (rules_apple only reads the plist body,
+        # signature is NOT verified).
         run: |
           set -e
-          SRC=build-system/example-configuration
-          mkdir -p "$SRC/profiles" "$SRC/certs"
-          cp "$SRC"/provisioning/*.mobileprovision "$SRC/profiles/"
-          ls "$SRC/profiles"
+          mkdir -p build-system/example-configuration/certs
+          chmod +x build-system/ci-refresh-profiles.sh
+          bash build-system/ci-refresh-profiles.sh
 
       - name: Build unsigned IPA
         env:
