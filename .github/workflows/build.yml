@@ -60,17 +60,21 @@ jobs:
         run: |
           set -eo pipefail
           mkdir -p artifacts
+          # --disableProvisioningProfiles is a `generateProject` flag only.
+          # For `build` we pass the same effect as a bazel define, plus point
+          # codesigning at the checked-in fake certificates/profiles so the
+          # signing step doesn't try to hit the real login keychain.
           python3 -u build-system/Make/Make.py \
             --overrideXcodeVersion \
             --overrideBazelVersion \
             --bazel="$(which bazelisk)" \
             --cacheDir="$HOME/telegram-bazel-cache" \
+            --bazelArguments="--//Telegram:disableProvisioningProfiles" \
             build \
               --buildNumber=100001 \
               --configuration=release_arm64 \
               --configurationPath=build-system/ci-configuration.json \
               --codesigningInformationPath=build-system/fake-codesigning \
-              --disableProvisioningProfiles \
               --outputBuildArtifactsPath=artifacts
 
       - name: List artifacts
