@@ -42,7 +42,15 @@ jobs:
         run: |
           set -e
           brew install bazelisk
-          bazelisk version || true
+          # Make.py runs `bazel --version` and expects the actual Bazel version
+          # ("bazel X.Y.Z"). Bazelisk only proxies when invoked as `bazel`
+          # (argv[0]), so expose a `bazel` shim pointing at bazelisk.
+          BAZELISK="$(which bazelisk)"
+          BIN_DIR="$(dirname "$BAZELISK")"
+          if [ ! -e "$BIN_DIR/bazel" ]; then
+            sudo ln -sf "$BAZELISK" "$BIN_DIR/bazel"
+          fi
+          bazel --version || true
 
       - name: Show runner info
         run: |
@@ -82,7 +90,7 @@ jobs:
           python3 -u build-system/Make/Make.py \
             --overrideXcodeVersion \
             --overrideBazelVersion \
-            --bazel="$(which bazelisk)" \
+            --bazel="$(which bazel)" \
             --cacheDir="$HOME/telegram-bazel-cache" \
             --bazelArguments="--//Telegram:disableProvisioningProfiles" \
             build \
