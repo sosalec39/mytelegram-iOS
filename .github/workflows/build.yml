@@ -81,6 +81,7 @@ jobs:
           # signing step doesn't try to hit the real login keychain.
           python3 -u build-system/Make/Make.py \
             --overrideXcodeVersion \
+            --overrideBazelVersion \
             --bazel="$(which bazelisk)" \
             --cacheDir="$HOME/telegram-bazel-cache" \
             --bazelArguments="--//Telegram:disableProvisioningProfiles" \
