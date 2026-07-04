@@ -19,6 +19,16 @@
 # input to AltStore / Sideloadly / any resigning tool.
 set -euo pipefail
 
+# The macOS runner's /usr/bin/openssl is actually LibreSSL and rejects flags
+# we rely on (-addext, -legacy). Use Homebrew's real OpenSSL 3.
+OPENSSL="$( { brew --prefix openssl@3 2>/dev/null || echo /opt/homebrew/opt/openssl@3; } )/bin/openssl"
+if [ ! -x "$OPENSSL" ]; then
+    brew install openssl@3 >/dev/null
+    OPENSSL="$(brew --prefix openssl@3)/bin/openssl"
+fi
+echo "using openssl: $OPENSSL"
+"$OPENSSL" version
+
 SRC_DIR="build-system/example-configuration/provisioning"
 DST_DIR="build-system/example-configuration/profiles"
 CRT_DIR="build-system/example-configuration/certs"
@@ -30,29 +40,29 @@ mkdir -p "$DST_DIR" "$CRT_DIR"
 # --- 1. one throwaway identity for every profile ----------------------------
 
 CERT_CN="iPhone Distribution: larpgram CI (C67CF9S4VU)"
-openssl req -x509 -newkey rsa:2048 \
+"$OPENSSL" req -x509 -newkey rsa:2048 \
   -keyout "$WORK/identity.key" \
   -out    "$WORK/identity.pem" \
   -sha256 -days 3650 -nodes \
   -subj "/CN=$CERT_CN/OU=C67CF9S4VU/O=larpgram/C=US" \
-  -addext "extendedKeyUsage=codeSigning" >/dev/null 2>&1
+  -addext "extendedKeyUsage=codeSigning"
 # CMS envelope signer (also self-signed, separate to avoid mixing purposes).
-openssl req -x509 -newkey rsa:2048 -keyout "$WORK/cms.key" -out "$WORK/cms.pem" \
-  -sha256 -days 3650 -nodes -subj "/CN=larpgram-ci-cms" >/dev/null 2>&1
+"$OPENSSL" req -x509 -newkey rsa:2048 -keyout "$WORK/cms.key" -out "$WORK/cms.pem" \
+  -sha256 -days 3650 -nodes -subj "/CN=larpgram-ci-cms"
 
 # Base64 DER of the identity certificate for the DeveloperCertificates array.
-openssl x509 -in "$WORK/identity.pem" -outform der -out "$WORK/identity.der"
+"$OPENSSL" x509 -in "$WORK/identity.pem" -outform der -out "$WORK/identity.der"
 CERT_B64=$(base64 -i "$WORK/identity.der" | tr -d '\n')
 
 # Ship a .p12 next to the profiles so the "Install identity" step below can
-# import it. Empty password.
+# import it.
 # -legacy: macOS `security import` doesn't understand the AES/PBES2 MAC that
 # OpenSSL 3 uses by default. Force the older RC2/3DES scheme.
-openssl pkcs12 -export -legacy \
+"$OPENSSL" pkcs12 -export -legacy \
   -out "$CRT_DIR/identity.p12" \
   -inkey "$WORK/identity.key" \
   -in    "$WORK/identity.pem" \
-  -password pass:ci >/dev/null 2>&1
+  -password pass:ci
 
 # --- 2. rewrite every profile ----------------------------------------------
 
@@ -62,7 +72,7 @@ NOW_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 for src in "$SRC_DIR"/*.mobileprovision; do
   name="$(basename "$src")"
   # 2.1 extract the raw plist (signature not checked)
-  openssl smime -inform der -verify -noverify -in "$src" -out "$WORK/$name.plist"
+  "$OPENSSL" smime -inform der -verify -noverify -in "$src" -out "$WORK/$name.plist"
 
   # 2.2 python does the plist surgery: dates, entitlements, DeveloperCertificates
   python3 - "$WORK/$name.plist" "$FUTURE_ISO" "$NOW_ISO" "$CERT_B64" <<'PY'
@@ -128,8 +138,8 @@ with open(path, "w", encoding="utf-8") as f:
 PY
 
   # 2.3 rewrap the patched plist in fresh CMS
-  openssl cms -sign -in "$WORK/$name.plist" -signer "$WORK/cms.pem" -inkey "$WORK/cms.key" \
-    -outform der -nodetach -out "$DST_DIR/$name" >/dev/null
+  "$OPENSSL" cms -sign -in "$WORK/$name.plist" -signer "$WORK/cms.pem" -inkey "$WORK/cms.key" \
+    -outform der -nodetach -out "$DST_DIR/$name"
 
   echo "refreshed $name"
 done
