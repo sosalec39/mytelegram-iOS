@@ -53,6 +53,19 @@ jobs:
           df -h /
           python3 --version
 
+      - name: Prepare example codesigning layout
+        # DirectoryCodesigningSource expects <path>/profiles/*.mobileprovision
+        # and <path>/certs/. The repo ships provisioning profiles under
+        # example-configuration/provisioning, so mirror them into the expected
+        # locations. `certs` stays empty — bazel signing is bypassed by
+        # --//Telegram:disableProvisioningProfiles.
+        run: |
+          set -e
+          SRC=build-system/example-configuration
+          mkdir -p "$SRC/profiles" "$SRC/certs"
+          cp "$SRC"/provisioning/*.mobileprovision "$SRC/profiles/"
+          ls "$SRC/profiles"
+
       - name: Build unsigned IPA
         env:
           # Bazelisk resolves the version from versions.json (Make.py wires it).
@@ -74,7 +87,7 @@ jobs:
               --buildNumber=100001 \
               --configuration=release_arm64 \
               --configurationPath=build-system/ci-configuration.json \
-              --codesigningInformationPath=build-system/fake-codesigning \
+              --codesigningInformationPath=build-system/example-configuration \
               --outputBuildArtifactsPath=artifacts
 
       - name: List artifacts
