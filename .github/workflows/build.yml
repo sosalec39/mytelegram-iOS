@@ -92,7 +92,6 @@ jobs:
             --overrideBazelVersion \
             --bazel="$(which bazel)" \
             --cacheDir="$HOME/telegram-bazel-cache" \
-            --bazelArguments="--//Telegram:disableProvisioningProfiles" \
             build \
               --buildNumber=100001 \
               --configuration=release_arm64 \
