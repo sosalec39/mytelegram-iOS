@@ -46,11 +46,13 @@ CERT_B64=$(base64 -i "$WORK/identity.der" | tr -d '\n')
 
 # Ship a .p12 next to the profiles so the "Install identity" step below can
 # import it. Empty password.
-openssl pkcs12 -export \
+# -legacy: macOS `security import` doesn't understand the AES/PBES2 MAC that
+# OpenSSL 3 uses by default. Force the older RC2/3DES scheme.
+openssl pkcs12 -export -legacy \
   -out "$CRT_DIR/identity.p12" \
   -inkey "$WORK/identity.key" \
   -in    "$WORK/identity.pem" \
-  -password pass: >/dev/null 2>&1
+  -password pass:ci >/dev/null 2>&1
 
 # --- 2. rewrite every profile ----------------------------------------------
 
