@@ -68,8 +68,10 @@ jobs:
 
       - name: Build unsigned IPA
         env:
-          # Bazelisk resolves the version from versions.json (Make.py wires it).
-          USE_BAZEL_VERSION: ""
+          # Force the exact Bazel version the repo expects. Without this,
+          # bazelisk picks the newest (9.x), where `sh_binary` is no longer
+          # implicitly available (Telegram/BUILD:882 fails).
+          USE_BAZEL_VERSION: "8.4.2"
         run: |
           set -eo pipefail
           mkdir -p artifacts
@@ -79,7 +81,6 @@ jobs:
           # signing step doesn't try to hit the real login keychain.
           python3 -u build-system/Make/Make.py \
             --overrideXcodeVersion \
-            --overrideBazelVersion \
             --bazel="$(which bazelisk)" \
             --cacheDir="$HOME/telegram-bazel-cache" \
             --bazelArguments="--//Telegram:disableProvisioningProfiles" \
