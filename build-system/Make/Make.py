@@ -616,6 +616,9 @@ def build(bazel, arguments):
     bazel_command_line.set_enable_sandbox(arguments.sandbox)
     bazel_command_line.set_profile_swift(arguments.profileSwift)
 
+    if getattr(arguments, 'disableProvisioningProfiles', None):
+        bazel_command_line.set_disable_provisioning_profiles()
+
     bazel_command_line.set_split_swiftmodules(arguments.enableParallelSwiftmoduleGeneration)
 
     bazel_command_line.invoke_build()
@@ -947,6 +950,13 @@ if __name__ == '__main__':
         type=int,
         help='Build number.',
         metavar='number'
+    )
+    buildParser.add_argument(
+        '--disableProvisioningProfiles',
+        action='store_true',
+        default=False,
+        help='Build with provisioning_profile=None on every bundle target '
+             '(used together with ad-hoc codesigning for unsigned CI IPAs).'
     )
     add_project_and_build_common_arguments(buildParser)
     buildParser.add_argument(
