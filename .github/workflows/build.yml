@@ -105,10 +105,12 @@ jobs:
         run: |
           set -eo pipefail
           mkdir -p artifacts
-          # Profiles are refreshed only so Make.py can read a valid
-          # aps-environment; actual signing is ad-hoc (rules_apple patched
-          # above). --disableProvisioningProfiles makes every bundle target use
-          # provisioning_profile=None so no real profile is embedded/required.
+          # rules_apple requires a provisioning_profile to be present for
+          # device builds (it embeds it and fails analysis otherwise), so we
+          # keep the refreshed example profiles. The actual code SIGNATURE is
+          # ad-hoc (rules_apple patched above to signing_certificate_name="-"),
+          # which ignores the profile's identity entirely. Result: a valid
+          # bundle structure with an ad-hoc signature, re-signed on install.
           python3 -u build-system/Make/Make.py \
             --overrideXcodeVersion \
             --overrideBazelVersion \
@@ -119,7 +121,6 @@ jobs:
               --configuration=release_arm64 \
               --configurationPath=build-system/ci-configuration.json \
               --codesigningInformationPath=build-system/example-configuration \
-              --disableProvisioningProfiles \
               --outputBuildArtifactsPath=artifacts
 
       - name: List artifacts
