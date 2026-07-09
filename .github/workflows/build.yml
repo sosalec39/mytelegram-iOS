@@ -1,13 +1,9 @@
-# Build larpgram iOS (Telegram fork) on GitHub Actions.
+# Build larpgram iOS (Telegram fork) — unsigned IPA for AltStore/Sideloadly.
 #
-# Strategy: use --codesigningInformationPath pointing to the fake-codesigning
-# folder that ships with the repo, and --disableProvisioningProfiles so no real
-# Apple certificates are needed. This produces an unsigned .ipa that can be
-# side-loaded via AltStore/Sideloadly.
-#
-# Xcode/Bazel versions are pinned in versions.json. The GitHub runners rarely
-# match exactly, so we pass --overrideXcodeVersion / --overrideBazelVersion.
-
+# Uses the SAME approach as upstream TelegramMessenger/Telegram-iOS CI (which is
+# green): import the fake-codesigning cert, then build with the fake-codesigning
+# profiles + appstore-configuration.json. No real Apple account, no ad-hoc hacks,
+# no --disableProvisioningProfiles (that path fails extension provisioning).
 name: build-ios
 
 on:
@@ -25,26 +21,21 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Select latest Xcode available on runner
         run: |
           set -e
-          ls /Applications | grep -i '^Xcode' || true
-          # Pick the newest installed Xcode; override checks in Make.py.
           LATEST_XCODE=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -n1 || true)
           if [ -z "$LATEST_XCODE" ]; then LATEST_XCODE="/Applications/Xcode.app"; fi
           echo "Using $LATEST_XCODE"
           sudo xcode-select -s "$LATEST_XCODE/Contents/Developer"
           xcodebuild -version
 
-      - name: Install Bazelisk (auto-picks Bazel from versions.json / .bazelversion)
+      - name: Install Bazelisk + pin Bazel 8.4.2
         run: |
           set -e
           brew install bazelisk
-          # Make.py runs `bazel --version` and expects the actual Bazel version
-          # ("bazel X.Y.Z"). Bazelisk only proxies when invoked as `bazel`
-          # (argv[0]), so expose a `bazel` shim pointing at bazelisk.
           BAZELISK="$(which bazelisk)"
           BIN_DIR="$(dirname "$BAZELISK")"
           if [ ! -e "$BIN_DIR/bazel" ]; then
@@ -52,63 +43,17 @@ jobs:
           fi
           bazel --version || true
 
-      - name: Show runner info
-        run: |
-          sw_vers
-          uname -a
-          df -h /
-          echo "Free disk:"
-          df -h /
-          python3 --version
-
-      - name: Refresh example provisioning profiles (dates + entitlements + aps)
-        # Make.py's resolve_configuration() still parses the provisioning
-        # profiles to extract a valid aps-environment entitlement (it exits 1
-        # otherwise), so the profiles must be present and unexpired — even
-        # though the actual codesigning below is ad-hoc and ignores them.
-        # This script pushes ExpirationDate to 2035 and injects the entitlements
-        # the app declares. We DO NOT use the keychain identity it also creates.
+      - name: Import fake-codesigning certificate
         run: |
           set -e
-          chmod +x build-system/ci-refresh-profiles.sh
-          bash build-system/ci-refresh-profiles.sh
+          python3 build-system/Make/ImportCertificates.py --path build-system/fake-codesigning/certs
 
-      - name: Force ad-hoc codesigning in rules_apple
-        # A self-signed cert can NEVER become a "valid codesigning identity"
-        # (the previous approach printed "0 valid identities found" and codesign
-        # died with "The specified item could not be found in the keychain").
-        # Instead, sign ad-hoc: rules_apple already signs ad-hoc for simulator
-        # builds via _ADHOC_PSEUDO_IDENTITY = "-". For device builds it uses the
-        # `signing_certificate_name` build setting, whose default is "". Flip
-        # that default to "-" so EVERY target (app + all extensions) is signed
-        # ad-hoc, needing no keychain, no cert and no provisioning profile.
-        # The resulting IPA is re-signed by Sideloadly / AltStore on install.
-        run: |
-          set -e
-          F="build-system/bazel-rules/rules_apple/apple/build_settings/build_settings.bzl"
-          test -f "$F" || { echo "rules_apple build_settings.bzl not found at $F"; exit 1; }
-          # Flip: "signing_certificate_name": struct( ... default = "" ...) -> "-"
-          # perl -0777 slurps the whole file so the match spans the struct's lines.
-          perl -0777 -i -pe 's/("signing_certificate_name":\s*struct\(.*?)default\s*=\s*""/${1}default = "-"/s' "$F"
-          if ! grep -q 'default = "-"' "$F"; then
-            echo "FAILED to patch signing_certificate_name default to ad-hoc"; exit 1
-          fi
-          echo "patched signing_certificate_name default -> '-' (ad-hoc)"
-          grep -n 'signing_certificate_name' -A3 "$F" | head -12
-
-      - name: Build unsigned IPA
+      - name: Build unsigned IPA (fake-codesigning, upstream approach)
         env:
-          # Force the exact Bazel version the repo expects. Without this,
-          # bazelisk picks the newest (9.x), where `sh_binary` is no longer
-          # implicitly available (Telegram/BUILD:882 fails).
           USE_BAZEL_VERSION: "8.4.2"
         run: |
           set -eo pipefail
           mkdir -p artifacts
-          # Profiles are refreshed only so Make.py can read a valid
-          # aps-environment; actual signing is ad-hoc (rules_apple patched
-          # above). --disableProvisioningProfiles makes every bundle target use
-          # provisioning_profile=None so no real profile is embedded/required.
           python3 -u build-system/Make/Make.py \
             --overrideXcodeVersion \
             --overrideBazelVersion \
@@ -117,16 +62,15 @@ jobs:
             build \
               --buildNumber=100001 \
               --configuration=release_arm64 \
-              --configurationPath=build-system/ci-configuration.json \
-              --codesigningInformationPath=build-system/example-configuration \
-              --disableProvisioningProfiles \
+              --configurationPath=build-system/appstore-configuration.json \
+              --codesigningInformationPath=build-system/fake-codesigning \
               --outputBuildArtifactsPath=artifacts
 
       - name: List artifacts
         if: always()
         run: |
           ls -la artifacts || true
-          find build -maxdepth 4 -type f \( -name '*.ipa' -o -name '*.zip' -o -name '*.DSYMs*' \) 2>/dev/null || true
+          find . -maxdepth 6 -name '*.ipa' 2>/dev/null || true
 
       - name: Upload IPA
         if: success()
@@ -138,14 +82,3 @@ jobs:
             artifacts/**/*.DSYMs.zip
           if-no-files-found: warn
           retention-days: 14
-
-      - name: Upload build logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-logs
-          path: |
-            build/**/*.log
-            **/bazel-out/**/*.log
-          if-no-files-found: ignore
-          retention-days: 7
