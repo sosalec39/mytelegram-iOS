@@ -2497,7 +2497,9 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             }
         }
         
-        if let profileGiftsContext, let peer {
+        // Settings can restore pinned gifts from cache before the server refreshes
+        // them. Avoid constructing animated gift layers in this header.
+        if !self.isSettings, let profileGiftsContext, let peer {
             let giftsCoverSize = self.giftsCover.update(
                 transition: ComponentTransition(transition),
                 component: AnyComponent(PeerInfoGiftsCoverComponent(
