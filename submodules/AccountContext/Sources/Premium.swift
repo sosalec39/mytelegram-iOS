@@ -1,4 +1,4 @@
-import Foundation
+﻿import Foundation
 import TelegramCore
 
 public enum PremiumIntroSource {
@@ -337,10 +337,13 @@ public struct AccountFreezeConfiguration {
     public static func with(appConfiguration: AppConfiguration) -> AccountFreezeConfiguration {
         let defaultValue = self.defaultValue
         if let data = appConfiguration.data {
+            let freezeSinceDate = (data["freeze_since_date"] as? Double).flatMap(Int32.init).flatMap { $0 > 0 ? $0 : nil }
+            let freezeUntilDate = (data["freeze_until_date"] as? Double).flatMap(Int32.init).flatMap { $0 > 0 ? $0 : nil }
+            let freezeAppealUrl = (data["freeze_appeal_url"] as? String).flatMap { $0.isEmpty ? nil : $0 }
             return AccountFreezeConfiguration(
-                freezeSinceDate: (data["freeze_since_date"] as? Double).flatMap(Int32.init) ?? defaultValue.freezeSinceDate,
-                freezeUntilDate: (data["freeze_until_date"] as? Double).flatMap(Int32.init) ?? defaultValue.freezeUntilDate,
-                freezeAppealUrl: data["freeze_appeal_url"] as? String ?? defaultValue.freezeAppealUrl
+                freezeSinceDate: freezeSinceDate ?? defaultValue.freezeSinceDate,
+                freezeUntilDate: freezeUntilDate ?? defaultValue.freezeUntilDate,
+                freezeAppealUrl: freezeAppealUrl ?? defaultValue.freezeAppealUrl
             )
         } else {
             return defaultValue

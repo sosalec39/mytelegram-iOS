@@ -1,4 +1,4 @@
-import Foundation
+﻿import Foundation
 import Postbox
 import TelegramApi
 import SwiftSignalKit
@@ -228,12 +228,15 @@ func _internal_fetchAndUpdateCachedPeerData(accountPeerId: PeerId, peerId rawPee
 
                 return combineLatest(
                     network.request(Api.functions.users.getFullUser(id: inputUser))
-                    |> retryRequest,
+                    |> retryRequestIfNotFrozen,
                     editableBotInfo,
                     botPreview,
                     additionalConnectedBots
                 )
                 |> mapToSignal { result, editableBotInfo, botPreview, additionalConnectedBots -> Signal<Bool, NoError> in
+                    guard let result else {
+                        return .single(false)
+                    }
                     return postbox.transaction { transaction -> Bool in
                         switch result {
                         case let .userFull(userFullData):

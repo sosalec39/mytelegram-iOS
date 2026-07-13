@@ -1,20 +1,23 @@
-# Build larpgram iOS (Telegram fork) — unsigned IPA for AltStore/Sideloadly.
-#
-# Uses the SAME approach as upstream TelegramMessenger/Telegram-iOS CI (which is
-# green): import the fake-codesigning cert, then build with the fake-codesigning
-# profiles + appstore-configuration.json. No real Apple account, no ad-hoc hacks,
-# no --disableProvisioningProfiles (that path fails extension provisioning).
-name: build-ios
+# Build larpgram iOS (Telegram fork) with repository fake code signing.
+# Produces a fake-signed IPA artifact for TrollStore/sideload testing without Apple secrets.
+name: build-ios-fake-signed
 
 on:
   push:
     branches: [master]
   workflow_dispatch:
+    inputs:
+      build_number:
+        description: "Build number"
+        required: false
+        default: "100001"
 
 jobs:
   build:
     runs-on: macos-15
     timeout-minutes: 300
+    env:
+      USE_BAZEL_VERSION: "8.4.2"
 
     steps:
       - name: Checkout with submodules
@@ -32,7 +35,7 @@ jobs:
           sudo xcode-select -s "$LATEST_XCODE/Contents/Developer"
           xcodebuild -version
 
-      - name: Install Bazelisk + pin Bazel 8.4.2
+      - name: Install Bazelisk
         run: |
           set -e
           brew install bazelisk
@@ -43,24 +46,31 @@ jobs:
           fi
           bazel --version || true
 
+      - name: Validate fake-codesigning files
+        run: |
+          set -e
+          test -f build-system/fake-codesigning/certs/SelfSigned.p12
+          test -f build-system/fake-codesigning/certs/Public.cer
+          test -f build-system/fake-codesigning/profiles/Telegram.mobileprovision
+          find build-system/fake-codesigning/profiles -maxdepth 1 -name '*.mobileprovision' -print
+
       - name: Import fake-codesigning certificate
         run: |
           set -e
           python3 build-system/Make/ImportCertificates.py --path build-system/fake-codesigning/certs
 
-      - name: Build unsigned IPA (fake-codesigning, upstream approach)
-        env:
-          USE_BAZEL_VERSION: "8.4.2"
+      - name: Build fake-signed IPA
         run: |
           set -eo pipefail
           mkdir -p artifacts
+          BUILD_NUMBER="${{ github.event.inputs.build_number || '100001' }}"
           python3 -u build-system/Make/Make.py \
             --overrideXcodeVersion \
             --overrideBazelVersion \
             --bazel="$(which bazel)" \
             --cacheDir="$HOME/telegram-bazel-cache" \
             build \
-              --buildNumber=100001 \
+              --buildNumber="$BUILD_NUMBER" \
               --configuration=release_arm64 \
               --configurationPath=build-system/appstore-configuration.json \
               --codesigningInformationPath=build-system/fake-codesigning \
@@ -76,9 +86,9 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: larpgram-ios-unsigned
+          name: larpgram-ios-fake-signed
           path: |
             artifacts/**/*.ipa
             artifacts/**/*.DSYMs.zip
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14

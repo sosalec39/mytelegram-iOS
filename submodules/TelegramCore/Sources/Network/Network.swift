@@ -1,4 +1,4 @@
-import Foundation
+﻿import Foundation
 import Postbox
 import TelegramApi
 import SwiftSignalKit
@@ -1230,6 +1230,11 @@ public func retryRequestIfNotFrozen<T>(signal: Signal<T, MTRpcError>) -> Signal<
     return signal
     |> retry(retryOnError: { error in
         if error.errorDescription == "FROZEN_METHOD_INVALID" {
+            return false
+        }
+        // Custom MTProto servers can occasionally return a layer-mismatched
+        // bootstrap object. Retrying that forever keeps dialogs/settings stuck.
+        if error.errorDescription == "TL_VERIFICATION_ERROR" || error.errorDescription.hasPrefix("CLIENT_RESPONSE_PARSE_FAILED") {
             return false
         }
         return true
